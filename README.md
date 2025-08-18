@@ -60,4 +60,3 @@ Framework: TensorFlow / Keras
 Input Size: 64×64 RGB images
 
 Evaluation Metrics: Accuracy, loss
----
