@@ -3,8 +3,9 @@ import tensorflow as tf
 import numpy as np
 from PIL import Image
 
-# Load trained model
-model = tf.keras.models.load_model("asl_model.h5")
+# Streamlit page setup
+st.set_page_config(page_title="ASL Detection", layout="centered")
+st.title("American Sign Language Detection")
 
 # Class labels (must match training order)
 class_labels = [
@@ -13,13 +14,40 @@ class_labels = [
     "SPACE","DELETE","NOTHING"
 ]
 
+# -------------------------------
+# Load TFLite model (cached)
+# -------------------------------
+@st.cache_resource
+def load_tflite_model():
+    interpreter = tf.lite.Interpreter(model_path="asl_model.tflite")
+    interpreter.allocate_tensors()
+    return interpreter
+
+interpreter = load_tflite_model()
+
+# Prediction function
+def predict_image(image):
+    img_size = 64
+    img = image.resize((img_size, img_size))
+    img_array = np.array(img) / 255.0
+    img_array = np.expand_dims(img_array, axis=0).astype(np.float32)
+
+    # Set input tensor
+    input_details = interpreter.get_input_details()
+    output_details = interpreter.get_output_details()
+    interpreter.set_tensor(input_details[0]['index'], img_array)
+    interpreter.invoke()
+
+    # Get output and compute predicted class
+    output_data = interpreter.get_tensor(output_details[0]['index'])
+    predicted_class = class_labels[np.argmax(output_data)]
+    confidence = np.max(output_data)
+    return predicted_class, confidence
+
+# -------------------------------
 # Streamlit UI
-st.set_page_config(page_title="ASL Detection", layout="centered")
-st.title("American Sign Language Detection")
-
-# Choose input method
+# -------------------------------
 option = st.radio("Choose input method:", ["Upload from computer", "Capture from camera"])
-
 image = None
 
 if option == "Upload from computer":
@@ -32,20 +60,9 @@ elif option == "Capture from camera":
     if camera_file:
         image = Image.open(camera_file).convert("RGB")
 
-# Run prediction if image is available
+# Run prediction
 if image is not None:
     st.image(image, caption="Input Image", use_container_width=True)
-
-    # Preprocess
-    img_size = 64
-    img = image.resize((img_size, img_size))
-    img_array = np.array(img) / 255.0
-    img_array = np.expand_dims(img_array, axis=0)
-
-    # Prediction
-    prediction = model.predict(img_array)
-    predicted_class = class_labels[np.argmax(prediction)]
-    confidence = np.max(prediction)
-
+    predicted_class, confidence = predict_image(image)
     st.subheader(f"Prediction: **{predicted_class}**")
     st.write(f"Confidence: {confidence:.2f}")

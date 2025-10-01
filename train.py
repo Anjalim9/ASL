@@ -1,13 +1,14 @@
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
-from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
-
+from tensorflow.keras.callbacks import EarlyStopping
+import tensorflow as tf
 
 # Paths (update if needed)
 train_dir = "dataset/train"
 test_dir = "dataset/test"
-model_path = "asl_model.h5"
+keras_model_path = "asl_model.h5"
+tflite_model_path = "asl_model.tflite"
 
 # Image settings
 img_size = 64
@@ -65,9 +66,18 @@ early_stop = EarlyStopping(monitor="val_loss", patience=5, restore_best_weights=
 history = model.fit(
     train_data,
     validation_data=test_data,
-    epochs=10,
+    epochs=3,
     callbacks=[early_stop]
 )
 
-model.save("asl_model.h5")
-print("Model saved as asl_model.h5")
+# Save Keras model
+model.save(keras_model_path)
+print(f"Keras model saved as {keras_model_path}")
+
+# Convert to TFLite
+converter = tf.lite.TFLiteConverter.from_keras_model(model)
+tflite_model = converter.convert()
+
+with open(tflite_model_path, "wb") as f:
+    f.write(tflite_model)
+print(f"TFLite model saved as {tflite_model_path}")
